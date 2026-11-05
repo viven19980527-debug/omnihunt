@@ -12,7 +12,7 @@ concurrency:
 jobs:
   build:
     name: Build OmniHunt unsigned IPA
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 40
 
     steps:
@@ -29,6 +29,16 @@ jobs:
         working-directory: ios
         run: |
           xcodegen generate
+          PBX=OmniHunt.xcodeproj/project.pbxproj
+          echo "--- objectVersion before ---"
+          grep -m1 objectVersion "$PBX" || true
+          # XcodeGen 2.46 会写 objectVersion 77（Xcode16 格式）；
+          # 若 runner 的 Xcode 较旧，降到 56 才能打开
+          if grep -q "objectVersion = 77;" "$PBX"; then
+            sed -i '' 's/objectVersion = 77;/objectVersion = 56;/' "$PBX"
+            echo "downgraded to 56"
+          fi
+          grep -m1 objectVersion "$PBX" || true
           ls -la
 
       - name: Build (unsigned)
