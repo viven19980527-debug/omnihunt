@@ -12,6 +12,7 @@ final class DarkStore: ObservableObject {
     @Published var torrents: [DarkHit] = []
     @Published var images: [DarkHit] = []
     @Published var onions: [DarkHit] = []
+    @Published var webs: [DarkHit] = []
 
     struct DarkHit: Identifiable {
         let id = UUID()
@@ -63,6 +64,7 @@ final class DarkStore: ObservableObject {
             await withTaskGroup(of: (String, [DarkHit]).self) { group in
                 group.addTask { ("sukebei", await self.nyaaRSS("https://sukebei.nyaa.si", enc, "sukebei")) }
                 group.addTask { ("nyaa", await self.nyaaRSS("https://nyaa.si", enc, "nyaa")) }
+                group.addTask { ("bing", await self.bingWeb(enc)) }
                 if ascii {
                     group.addTask {
                         let url = "https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit=20&tags=\(tag)"
@@ -71,6 +73,7 @@ final class DarkStore: ObservableObject {
                     group.addTask { ("danbooru", await self.danbooru(tag)) }
                     group.addTask { ("e621", await self.e621(tag)) }
                     group.addTask { ("ehentai", await self.eHentai(enc)) }
+                    group.addTask { ("bingimg", await self.bingImages(enc)) }
                 }
 
                 for await (name, hits) in group {
@@ -96,7 +99,7 @@ final class DarkStore: ObservableObject {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty, !running else { return }
         running = true
-        torrents = []; images = []; onions = []; log = []
+        torrents = []; images = []; onions = []; webs = []; log = []
         let enc = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
         let tag = q.replacingOccurrences(of: " ", with: "_")
             .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
@@ -117,6 +120,12 @@ final class DarkStore: ObservableObject {
             }
             group.addTask { ("ahmia", await self.ahmia(enc)) }
             group.addTask { ("onionse", await self.onionSE(enc)) }
+            // ---- 手机端直连网页引擎（不需要电脑）----
+            group.addTask { ("bing", await self.bingWeb(enc)) }
+            group.addTask { ("baidu", await self.baiduWeb(enc)) }
+            group.addTask { ("wiki", await self.wiki(enc)) }
+            group.addTask { ("bili", await self.bilibiliVideo(enc)) }
+            group.addTask { ("bingimg", await self.bingImages(enc)) }
 
             for await (name, hits) in group {
                 log.append("\(name): \(hits.count) 条")
@@ -127,6 +136,8 @@ final class DarkStore: ObservableObject {
                         onions.append(h)
                     } else if !h.thumb.isEmpty || !h.full.isEmpty {
                         images.append(h)
+                    } else if !h.page.isEmpty {
+                        webs.append(h)
                     }
                 }
             }
@@ -208,6 +219,83 @@ final class DarkStore: ObservableObject {
             return DarkHit(source: "e621", title: tags.prefix(6).joined(separator: " "),
                            page: page, thumb: preview, full: full)
         }
+    }
+
+    // ---- 手机端直连网页引擎（不经过电脑）----
+
+    private func bingWeb(_ q: String) async -> [DarkHit] {
+        guard let html = await fetch("https://www.bing.com/search?q=\(q)&setlang=zh-CN") else { return [] }
+        var out: [DarkHit] = []
+        for block in matches(html, "<li class=\"b_algo\"[\\s\\S]*?</li>") {
+            let href = first(block, "href=\"(https?://[^\"]+)\"")
+            let title = clean(first(block, "<h2[^>]*>([\\s\\S]*?)</h2>"))
+            let snip = clean(first(block, "<p[^>]*>([\\s\\S]*?)</p>"))
+            guard !href.isEmpty, !title.isEmpty else { continue }
+            out.append(DarkHit(source: "bing", title: title, page: href, size: snip))
+            if out.count >= 15 { break }
+        }
+        return out
+    }
+
+    private func baiduWeb(_ q: String) async -> [DarkHit] {
+        guard let html = await fetch("https://www.baidu.com/s?wd=\(q)") else { return [] }
+        var out: [DarkHit] = []
+        for block in matches(html, "<div class=\"result[^\"]*\"[\\s\\S]*?</div>\\s*</div>") {
+            let href = first(block, "href=\"(https?://[^\"]+)\"")
+            let title = clean(first(block, "<h3[^>]*>([\\s\\S]*?)</h3>"))
+            guard !href.isEmpty, !title.isEmpty else { continue }
+            out.append(DarkHit(source: "baidu", title: title, page: href))
+            if out.count >= 15 { break }
+        }
+        return out
+    }
+
+    private func wiki(_ q: String) async -> [DarkHit] {
+        guard let raw = await fetch("https://zh.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=10&srsearch=\(q)"),
+              let data = raw.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let q1 = obj["query"] as? [String: Any],
+              let arr = q1["search"] as? [[String: Any]] else { return [] }
+        return arr.compactMap { item in
+            guard let title = item["title"] as? String else { return nil }
+            let enc = title.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? title
+            let snip = (item["snippet"] as? String ?? "").replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            return DarkHit(source: "wiki", title: title,
+                           page: "https://zh.wikipedia.org/wiki/\(enc)", size: snip)
+        }
+    }
+
+    private func bilibiliVideo(_ q: String) async -> [DarkHit] {
+        guard let html = await fetch("https://search.bilibili.com/all?keyword=\(q)") else { return [] }
+        var out: [DarkHit] = []
+        for card in matches(html, "<div class=\"bili-video-card[\"]?[\\s\\S]*?</div>\\s*</div>\\s*</div>") {
+            let href = first(card, "href=\"(//www\\.bilibili\\.com/video/[^\"]+)\"")
+            guard !href.isEmpty else { continue }
+            let thumb = first(card, "srcset=\"(//i[0-9]\\.hdslb\\.com/[^ \"]+)")
+            let page = href.hasPrefix("//") ? "https:" + href : href
+            out.append(DarkHit(source: "bili", title: "B站视频", page: page,
+                               thumb: thumb.hasPrefix("//") ? "https:" + thumb : thumb))
+            if out.count >= 12 { break }
+        }
+        return out
+    }
+
+    private func bingImages(_ q: String) async -> [DarkHit] {
+        guard let html = await fetch("https://www.bing.com/images/search?q=\(q)&form=HDRSC2") else { return [] }
+        var out: [DarkHit] = []
+        for m in matches(html, "m=\"(\\{[^\"]{20,3000}\\})\"") {
+            let jsonText = m.replacingOccurrences(of: "&quot;", with: "\"")
+            guard let data = jsonText.data(using: .utf8),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+            let full = obj["murl"] as? String ?? ""
+            let thumb = (obj["turl"] as? String ?? "").replacingOccurrences(of: "&amp;", with: "&")
+            let page = obj["purl"] as? String ?? full
+            guard !thumb.isEmpty else { continue }
+            out.append(DarkHit(source: "bingimg", title: "图片", page: page.isEmpty ? full : page,
+                               thumb: thumb, full: full))
+            if out.count >= 20 { break }
+        }
+        return out
     }
 
     // ---- E-Hentai 画廊（猎奇/重口分类多）----
@@ -329,6 +417,7 @@ struct DarkBoardView: View {
                     presetRow
                     if !store.log.isEmpty { logRow }
                     if store.running { ProgressView().tint(Theme.accent) }
+                    if !store.webs.isEmpty { webSection }
                     if !store.torrents.isEmpty { torrentSection }
                     if !store.images.isEmpty { imageSection }
                     if !store.onions.isEmpty { onionSection }
@@ -339,7 +428,7 @@ struct DarkBoardView: View {
                 .padding(14)
             }
             .background(Theme.bg.ignoresSafeArea())
-            .navigationTitle("直连暗面")
+            .navigationTitle("直连搜索")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) { Button("完成") { dismiss() } }
@@ -366,7 +455,7 @@ struct DarkBoardView: View {
 
     private var hint: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("这个页面不经过 PC 后端，直接用手机网络抓。")
+            Text("这个页面不经过电脑，直接用手机网络抓：关掉电脑也能用。")
                 .font(.system(size: 12)).foregroundStyle(Theme.muted)
             Text("开 VPN 后：nyaa / sukebei（磁力）、rule34 / danbooru / e621（图站）、ahmia / onionsearchengine（.onion 索引）全部直连。")
                 .font(.system(size: 11)).foregroundStyle(Theme.dim)
@@ -421,6 +510,33 @@ struct DarkBoardView: View {
         Text(store.log.joined(separator: " · "))
             .font(.system(size: 10, design: .monospaced))
             .foregroundStyle(Theme.dim)
+    }
+
+    private var webSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionTitle("网页 \(store.webs.count)")
+            ForEach(store.webs) { h in
+                Button {
+                    if let u = URL(string: h.page) { browser = BrowserTarget(url: u) }
+                } label: {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(h.title).font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(Theme.ink).lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                        if !h.size.isEmpty {
+                            Text(h.size).font(.system(size: 10))
+                                .foregroundStyle(Theme.muted).lineLimit(2)
+                        }
+                        Text(h.source).font(.system(size: 9.5)).foregroundStyle(Theme.dim)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .background(Theme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     private var torrentSection: some View {
