@@ -16,6 +16,11 @@ enum Theme {
     static let adult = Color(hex: 0xFF85C0)
     static let torrent = Color(hex: 0xFFCC66)
     static let pattern = Color(hex: 0x8B97A8)
+    static let image = Color(hex: 0x7DE3A0)
+    static let video = Color(hex: 0xFF9F6B)
+
+    /// 视觉结果（图片/视频）卡片底色
+    static let surface = Color(hex: 0x11151C)
 
     static func color(for kind: ResultKind) -> Color {
         switch kind {
@@ -24,6 +29,8 @@ enum Theme {
         case .adult: return adult
         case .torrent: return torrent
         case .pattern: return pattern
+        case .image: return image
+        case .video: return video
         }
     }
 }

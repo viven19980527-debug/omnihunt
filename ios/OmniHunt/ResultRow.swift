@@ -21,7 +21,7 @@ struct KindBadge: View {
 struct ResultRow: View {
     let result: SearchResult
 
-    @State private var browser: URL?
+    @State private var browser: BrowserTarget?
     @State private var copied = false
 
     var body: some View {
@@ -97,7 +97,7 @@ struct ResultRow: View {
                 ShareLink(item: url)
             }
         }
-        .sheet(item: $browser) { url in InAppBrowser(url: url) }
+        .sheet(item: $browser) { t in InAppBrowser(url: t.url) }
     }
 
     private func copy(_ text: String) {
@@ -110,6 +110,6 @@ struct ResultRow: View {
 
     private func open(_ string: String) {
         guard let url = URL(string: string), url.scheme?.hasPrefix("http") == true else { return }
-        browser = url          // 走 App 内拦截广告的浏览器
+        browser = BrowserTarget(url: url)   // App 内拦截广告的浏览器
     }
 }
