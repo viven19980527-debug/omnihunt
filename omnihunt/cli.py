@@ -78,6 +78,13 @@ def cmd_search(args: argparse.Namespace) -> int:
         offline=args.offline,
         use_cache=not args.no_cache,
     ) as engine:
+        proxy = (getattr(args, "proxy", None) or "").strip()
+        if proxy:
+            if proxy.startswith("socks"):
+                engine.client.tor_proxy = proxy
+                engine.client.force_tor = True
+            else:
+                engine.client.http_proxy = proxy
         if args.tor_all:
             engine.client.force_tor = True
         response = engine.search(
@@ -195,6 +202,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
         port=args.port,
         config_path=args.config,
         offline=args.offline,
+        proxy=getattr(args, "proxy", None),
     )
     return 0
 
@@ -229,6 +237,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--offline", action="store_true", help="离线 fixtures 模式")
     s.add_argument("--no-cache", action="store_true")
     s.add_argument("--tor-all", action="store_true", help="全部流量走 Tor SOCKS5")
+    s.add_argument("--proxy", default=None,
+                   help="HTTP/SOCKS5 代理：http://127.0.0.1:7890 或 socks5h://127.0.0.1:7890")
     s.set_defaults(func=cmd_search)
 
     e = sub.add_parser("engines", help="列出引擎")
@@ -247,6 +257,7 @@ def build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--host", default="127.0.0.1")
     sv.add_argument("--port", type=int, default=7860)
     sv.add_argument("--offline", action="store_true")
+    sv.add_argument("--proxy", default=None, help="HTTP/SOCKS5 代理，透传给所有适配器")
     sv.set_defaults(func=cmd_serve)
 
     ch = sub.add_parser("cache", help="缓存维护")

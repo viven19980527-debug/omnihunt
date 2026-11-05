@@ -141,8 +141,16 @@ def serve(
     *,
     config_path: Optional[str] = None,
     offline: bool = False,
+    proxy: Optional[str] = None,
 ) -> None:
     engine = SearchEngine(config_path=config_path, offline=offline)
+    if proxy:
+        proxy = proxy.strip()
+        if proxy.startswith('socks'):
+            engine.client.tor_proxy = proxy
+            engine.client.force_tor = True
+        else:
+            engine.client.http_proxy = proxy
     Handler.engine = engine
     httpd = ThreadingHTTPServer((host, port), Handler)
     httpd.daemon_threads = True
