@@ -56,14 +56,19 @@ final class DarkStore: ObservableObject {
             .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
 
         await withTaskGroup(of: (String, [DarkHit]).self) { group in
+            let isASCII = q.unicodeScalars.allSatisfy { $0.isASCII }
             group.addTask { ("nyaa", await self.nyaaRSS("https://nyaa.si", enc, "nyaa")) }
             group.addTask { ("sukebei", await self.nyaaRSS("https://sukebei.nyaa.si", enc, "sukebei")) }
-            group.addTask {
-                let url = "https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit=20&tags=\(tag)"
-                return ("rule34", await self.booru(url, "rule34", "rule34.xxx"))
+            if isASCII {
+                group.addTask {
+                    let url = "https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit=20&tags=\(tag)"
+                    return ("rule34", await self.booru(url, "rule34", "rule34.xxx"))
+                }
+                group.addTask { ("danbooru", await self.danbooru(tag)) }
+                group.addTask { ("e621", await self.e621(tag)) }
+            } else {
+                log.append("中文关键词已跳过 booru（只认英文标签）")
             }
-            group.addTask { ("danbooru", await self.danbooru(tag)) }
-            group.addTask { ("e621", await self.e621(tag)) }
             group.addTask { ("ahmia", await self.ahmia(enc)) }
             group.addTask { ("onionse", await self.onionSE(enc)) }
 
@@ -74,26 +79,35 @@ final class DarkStore: ObservableObject {
                         torrents.append(h)
                     } else if h.isOnion {
                         onions.append(h)
-                    } else {
+                    } else if !h.thumb.isEmpty || !h.full.isEmpty {
                         images.append(h)
                     }
                 }
             }
         }
+        torrents.sort { (Int($0.seeders) ?? 0) > (Int($1.seeders) ?? 0) }
         running = false
     }
 
-    // ---- Nyaa / Sukebei RSS：真 magnet + 体积 + 做种 ----
+    // ---- Nyaa / Sukebei RSS：从 infoHash 拼 magnet（RSS 本身不含 magnet 链接）----
     private func nyaaRSS(_ base: String, _ q: String, _ name: String) async -> [DarkHit] {
         guard let xml = await fetch("\(base)/?page=rss&c=0_0&f=0&q=\(q)") else { return [] }
         var out: [DarkHit] = []
         for item in matches(xml, "<item>([\\s\\S]*?)</item>") {
-            let title = first(item, "<title>([\\s\\S]*?)</title>")
-            let link = first(item, "<link>([\\s\\S]*?)</link>")
-            let magnet = first(item, "(magnet:\\?xt=urn:btih:[^\"<\\s]+)")
-            let size = first(item, "<nyaa:size>([\\s\\S]*?)</nyaa:size>")
-            let seeds = first(item, "<nyaa:seeders>([\\s\\S]*?)</nyaa:seeders>")
-            out.append(DarkHit(source: name, title: clean(title), page: link.isEmpty ? magnet : link,
+            let title = clean(first(item, "<title>([\\s\\S]*?)</title>"))
+            let link = clean(first(item, "<link>([\\s\\S]*?)</link>"))
+            let hash = clean(first(item, "<nyaa:infoHash>([\\s\\S]*?)</nyaa:infoHash>"))
+            let size = clean(first(item, "<nyaa:size>([\\s\\S]*?)</nyaa:size>"))
+            let seeds = clean(first(item, "<nyaa:seeders>([\\s\\S]*?)</nyaa:seeders>"))
+
+            var magnet = first(item, "(magnet:\\?xt=urn:btih:[^\"<\\s&]+)")
+            if magnet.isEmpty, !hash.isEmpty {
+                let dn = title.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+                magnet = "magnet:?xt=urn:btih:\(hash)&dn=\(dn)"
+            }
+            guard !magnet.isEmpty || !link.isEmpty else { continue }
+            out.append(DarkHit(source: name, title: title.isEmpty ? "(无标题)" : title,
+                               page: link.isEmpty ? magnet : link,
                                magnet: magnet, size: size, seeders: seeds))
             if out.count >= 20 { break }
         }
@@ -151,28 +165,36 @@ final class DarkStore: ObservableObject {
     }
 
     // ---- .onion 索引（clearnet 端点）----
+    // 结构常改，所以不依赖 li/h4：直接抓 .onion 链接，再取相邻文本当标题。
     private func ahmia(_ q: String) async -> [DarkHit] {
         guard let html = await fetch("https://ahmia.fi/search/?q=\(q)") else { return [] }
-        var out: [DarkHit] = []
-        for block in matches(html, "<li class=\"result\"[\\s\\S]*?</li>") {
-            let href = first(block, "href=\"(http://[a-z2-7]{16,56}\\.onion[^\"]*)\"")
-            let title = first(block, "<h4>([\\s\\S]*?)</h4>")
-            guard !href.isEmpty else { continue }
-            out.append(DarkHit(source: "ahmia", title: clean(title), page: href))
-            if out.count >= 15 { break }
-        }
-        return out
+        return onionHits(html, source: "ahmia")
     }
 
     private func onionSE(_ q: String) async -> [DarkHit] {
         guard let html = await fetch("https://onionsearchengine.com/search.php?search=\(q)") else { return [] }
+        return onionHits(html, source: "onionse")
+    }
+
+    private func onionHits(_ html: String, source: String) -> [DarkHit] {
+        var seen = Set<String>()
         var out: [DarkHit] = []
-        for block in matches(html, "<div class=\"result[\\s\\S]*?</div>\\s*</div>") {
-            let href = first(block, "href=\"(http://[a-z2-7]{16,56}\\.onion[^\"]*)\"")
-            let title = first(block, "<a[^>]*>([\\s\\S]*?)</a>")
-            guard !href.isEmpty else { continue }
-            out.append(DarkHit(source: "onionse", title: clean(title), page: href))
-            if out.count >= 15 { break }
+        let pattern = "href=\"(https?://[a-z2-7]{12,62}\\.onion[^\"#]*)\""
+        guard let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
+        let ns = html as NSString
+        let all = re.matches(in: html, range: NSRange(location: 0, length: ns.length))
+        for m in all {
+            let href = ns.substring(with: m.range(at: 1))
+            let key = href.lowercased()
+            guard seen.insert(key).inserted else { continue }
+            // 从链接位置向前后各取 400 字符，抽标题
+            let start = max(0, m.range.location - 300)
+            let len = min(900, ns.length - start)
+            let window = ns.substring(with: NSRange(location: start, length: len))
+            let anchor = first(window, ">([^<>]{6,120})</a>")
+            let title = anchor.isEmpty ? href : clean(anchor)
+            out.append(DarkHit(source: source, title: title, page: href))
+            if out.count >= 20 { break }
         }
         return out
     }
@@ -230,6 +252,8 @@ struct DarkBoardView: View {
                     if !store.images.isEmpty { imageSection }
                     if !store.onions.isEmpty { onionSection }
                     if !store.running && store.log.isEmpty { hint }
+                    if !store.log.isEmpty && store.torrents.isEmpty
+                        && store.images.isEmpty && store.onions.isEmpty { emptyHint }
                 }
                 .padding(14)
             }
@@ -241,6 +265,22 @@ struct DarkBoardView: View {
             }
             .sheet(item: $browser) { t in InAppBrowser(url: t.url) }
         }
+    }
+
+    private var emptyHint: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("没有结果时按这三点排查：")
+                .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.ink)
+            Text("1. booru 图站只认英文标签：搜 nurse / nurse_dress 而不是「护士」")
+                .font(.system(size: 11)).foregroundStyle(Theme.muted)
+            Text("2. nyaa 是动漫站，中文关键词通常 0 条；成人磁力用 sukebei")
+                .font(.system(size: 11)).foregroundStyle(Theme.muted)
+            Text("3. .onion 索引常被 Cloudflare 拦，多试几次或换关键词")
+                .font(.system(size: 11)).foregroundStyle(Theme.muted)
+        }
+        .padding(10)
+        .background(Theme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private var hint: some View {
