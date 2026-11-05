@@ -46,6 +46,52 @@ final class DarkStore: ObservableObject {
         }
     }
 
+    /// 一次跑一组词，结果合并（预设词包用）
+    func runPack(_ queries: [String]) async {
+        guard !running, !queries.isEmpty else { return }
+        running = true
+        torrents = []; images = []; onions = []; log = []
+        var seenMagnet = Set<String>()
+        var seenPage = Set<String>()
+
+        for q in queries {
+            let enc = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
+            let tag = q.replacingOccurrences(of: " ", with: "_")
+                .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
+            let ascii = q.unicodeScalars.allSatisfy { $0.isASCII }
+
+            await withTaskGroup(of: (String, [DarkHit]).self) { group in
+                group.addTask { ("sukebei", await self.nyaaRSS("https://sukebei.nyaa.si", enc, "sukebei")) }
+                group.addTask { ("nyaa", await self.nyaaRSS("https://nyaa.si", enc, "nyaa")) }
+                if ascii {
+                    group.addTask {
+                        let url = "https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit=20&tags=\(tag)"
+                        return ("rule34", await self.booru(url, "rule34", "rule34.xxx"))
+                    }
+                    group.addTask { ("danbooru", await self.danbooru(tag)) }
+                    group.addTask { ("e621", await self.e621(tag)) }
+                    group.addTask { ("ehentai", await self.eHentai(enc)) }
+                }
+
+                for await (name, hits) in group {
+                    var added = 0
+                    for h in hits {
+                        if !h.magnet.isEmpty {
+                            if seenMagnet.insert(h.magnet).inserted { torrents.append(h); added += 1 }
+                        } else if h.isOnion {
+                            if seenPage.insert(h.page).inserted { onions.append(h); added += 1 }
+                        } else if !h.thumb.isEmpty || !h.full.isEmpty {
+                            if seenPage.insert(h.page).inserted { images.append(h); added += 1 }
+                        }
+                    }
+                    log.append("\(q)·\(name): +\(added)")
+                }
+            }
+        }
+        torrents.sort { (Int($0.seeders) ?? 0) > (Int($1.seeders) ?? 0) }
+        running = false
+    }
+
     func run() async {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty, !running else { return }
@@ -164,6 +210,21 @@ final class DarkStore: ObservableObject {
         }
     }
 
+    // ---- E-Hentai 画廊（猎奇/重口分类多）----
+    private func eHentai(_ q: String) async -> [DarkHit] {
+        guard let html = await fetch("https://e-hentai.org/?f_search=\(q)") else { return [] }
+        var out: [DarkHit] = []
+        let blocks = matches(html, "<a href=\"(https://e-hentai\\.org/g/[^\"]+)\"[\\s\\S]{0,400}?title=\"([^\"]*)\"")
+        for b in blocks {
+            let href = first(b, "(https://e-hentai\\.org/g/[^\"]+)")
+            let title = clean(first(b, "title=\"([^\"]*)\""))
+            guard !href.isEmpty else { continue }
+            out.append(DarkHit(source: "ehentai", title: title.isEmpty ? href : title, page: href))
+            if out.count >= 15 { break }
+        }
+        return out
+    }
+
     // ---- .onion 索引（clearnet 端点）----
     // 结构常改，所以不依赖 li/h4：直接抓 .onion 链接，再取相邻文本当标题。
     private func ahmia(_ q: String) async -> [DarkHit] {
@@ -233,6 +294,25 @@ final class DarkStore: ObservableObject {
     }
 }
 
+
+// MARK: - 关键词包（血腥 / 灵异 / 猎奇）
+
+struct DarkPreset: Identifiable {
+    let id = UUID()
+    let name: String
+    let queries: [String]
+    var label: String { name }
+}
+
+let darkPresets: [DarkPreset] = [
+    DarkPreset(name: "血腥", queries: ["gore", "blood", "guro", "cannibal"]),
+    DarkPreset(name: "灵异", queries: ["horror", "ghost", "occult", "creepy"]),
+    DarkPreset(name: "猎奇", queries: ["bizarre", "body_horror", "monster", "tentacle"]),
+    DarkPreset(name: "恐怖", queries: ["snuff", "disturbing", "nightmare", "demon"]),
+    DarkPreset(name: "成人血腥", queries: ["ryona", "guro", "scat", "snuff"]),
+    DarkPreset(name: "中文猎奇", queries: ["猎奇", "血腥", "灵异", "重口"]),
+]
+
 // MARK: - 页面
 
 struct DarkBoardView: View {
@@ -246,6 +326,7 @@ struct DarkBoardView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     searchRow
+                    presetRow
                     if !store.log.isEmpty { logRow }
                     if store.running { ProgressView().tint(Theme.accent) }
                     if !store.torrents.isEmpty { torrentSection }
@@ -291,6 +372,27 @@ struct DarkBoardView: View {
                 .font(.system(size: 11)).foregroundStyle(Theme.dim)
         }
         .padding(.top, 8)
+    }
+
+    private var presetRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(darkPresets) { p in
+                    Button {
+                        Task { await store.runPack(p.queries) }
+                    } label: {
+                        Text(p.name)
+                            .font(.system(size: 12, weight: .semibold))
+                            .padding(.horizontal, 12).padding(.vertical, 7)
+                            .background(Theme.panel)
+                            .foregroundStyle(Theme.ink)
+                            .clipShape(Capsule())
+                    }
+                    .disabled(store.running)
+                }
+            }
+            .padding(.vertical, 2)
+        }
     }
 
     private var searchRow: some View {
