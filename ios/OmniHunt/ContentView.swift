@@ -4,6 +4,7 @@ struct ContentView: View {
     @EnvironmentObject private var settings: AppSettings
     @StateObject private var store = SearchStore()
     @State private var showSettings = false
+    @State private var showDark = false
     @FocusState private var searchFocused: Bool
 
     private let examples = ["frida hook", "吃瓜", "urn:btih", "index of archives"]
@@ -27,6 +28,7 @@ struct ContentView: View {
             }
             .scrollDismissesKeyboard(.interactively)
         }
+        .sheet(isPresented: $showDark) { DarkBoardView() }
         .sheet(isPresented: $showSettings, onDismiss: applyDefaults) {
             SettingsView().environmentObject(settings)
         }
@@ -48,6 +50,12 @@ struct ContentView: View {
                     .foregroundStyle(Theme.muted)
             }
             Spacer()
+            Button { showDark = true } label: {
+                Image(systemName: "moon.stars.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.onion)
+            }
+            .accessibilityLabel("直连暗面")
             Button { showSettings = true } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 17))
