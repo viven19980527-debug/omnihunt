@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "note": "磁力/DHT 索引站目录。结果只是带关键词的跳转链接，是否抓 magnet 由 nyaa/magnet 适配器决定。",
+  "sites": [
+    {"name": "BT4G", "search": "https://bt4gprx.com/search?q={q}", "kind": "torrent", "tags": ["dht", "infohash"]},
+    {"name": "BTDig", "search": "https://btdig.com/search?q={q}", "kind": "torrent", "tags": ["dht"]},
+    {"name": "Nyaa", "search": "https://nyaa.si/?f=0&c=0_0&q={q}", "kind": "torrent", "tags": ["anime"]},
+    {"name": "Sukebei", "search": "https://sukebei.nyaa.si/?f=0&c=0_0&q={q}", "kind": "torrent", "tags": ["adult", "anime"]},
+    {"name": "1337x", "search": "https://1337x.to/search/{q}/1/", "kind": "torrent", "tags": ["general"]},
+    {"name": "LimeTorrents", "search": "https://www.limetorrents.lol/search/all/{q}/", "kind": "torrent", "tags": ["general"]},
+    {"name": "TorrentGalaxy", "search": "https://torrentgalaxy.to/torrents.php?search={q}", "kind": "torrent", "tags": ["general"]},
+    {"name": "SolidTorrents", "search": "https://solidtorrents.to/search?q={q}", "kind": "torrent", "tags": ["dht"]},
+    {"name": "Knaben", "search": "https://knaben.eu/search/{q}", "kind": "torrent", "tags": ["meta"]},
+    {"name": "Internet Archive", "search": "https://archive.org/search?query={q}", "kind": "torrent", "tags": ["archive", "legal"]}
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "note": "onion 地址会轮换。ONION_HOST / TORCH_ONION 之类是占位符，从目录站取当前可用地址后替换；enabled=false 的条目不参与搜索。",
+  "sites": [
+    {"name": "Ahmia", "search": "https://ahmia.fi/search/?q={q}", "kind": "onion", "tags": ["index", "clearnet-mirror"], "enabled": true, "note": "clearnet 可访问的 .onion 索引；搜索端点被限流时会 302 回首页"},
+    {"name": "OnionSearchEngine", "search": "https://onionsearchengine.com/search.php?search={q}", "kind": "onion", "tags": ["index", "clearnet-front"], "enabled": true, "note": "clearnet 前端，直接返回 .onion 结果"},
+    {"name": "Torch", "search": "http://TORCH_ONION/search?q={q}", "kind": "onion", "tags": ["index", "oldest"], "onion": true, "enabled": false, "note": "占位 host，换当前地址"},
+    {"name": "OnionLand", "search": "http://ONIONLAND_ONION/search?q={q}", "kind": "onion", "tags": ["index"], "onion": true, "enabled": false, "note": "占位 host"},
+    {"name": "Excavator", "search": "http://EXCAVATOR_ONION/search?q={q}", "kind": "onion", "tags": ["index"], "onion": true, "enabled": false, "note": "占位 host"},
+    {"name": "Phobos", "search": "http://PHOBOS_ONION/search?q={q}", "kind": "onion", "tags": ["index"], "onion": true, "enabled": false, "note": "占位 host"},
+    {"name": "DeepSearch", "search": "http://DEEPSEARCH_ONION/search?q={q}", "kind": "onion", "tags": ["index", "meta"], "onion": true, "enabled": false, "note": "占位 host"},
+    {"name": "dark.fail", "search": "https://dark.fail/", "kind": "onion", "tags": ["directory", "verify"], "enabled": true, "note": "签名校验的入口目录，用来核对当前可用域名"},
+    {"name": "Tor.taxi", "search": "https://tor.taxi/", "kind": "onion", "tags": ["directory"], "enabled": true, "note": "入口目录"},
+    {"name": "OnionDir", "search": "https://oniondir.org/", "kind": "onion", "tags": ["directory"], "enabled": true, "note": "分类目录"}
+  ]
+}

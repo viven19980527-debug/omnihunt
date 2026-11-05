@@ -1,0 +1,153 @@
+http:
+  timeout: 15          # 单请求超时（秒）
+  retries: 1           # 失败重试次数
+  rate_per_sec: 1.5    # 同一 host 的请求间隔控制
+  max_bytes: 3000000   # 单页最大读取字节
+  tor_socks: "127.0.0.1:9050"   # Tor SOCKS5，可用 OMNI_TOR_SOCKS 覆盖
+  http_proxy: ""                 # 可选 HTTP 代理，例如 http://127.0.0.1:7890
+
+cache:
+  enabled: true
+  path: data/cache.sqlite
+  ttl_seconds: 1800
+
+search:
+  limit: 40            # 合并去重后的返回条数
+  per_engine: 10       # 每个引擎取多少条
+  timeout: 25          # 整轮搜索墙钟超时
+
+# type 可选: duckduckgo | ddg_lite | bing | mojeek | searx | ahmia |
+#            onion_index | regex | catalog | nyaa | magnet
+engines:
+  # ---------------- clearnet ----------------
+  - name: duckduckgo
+    type: duckduckgo
+    kind: web
+    weight: 1.0
+    enabled: false          # html.duckduckgo.com 在部分网络（含大陆）不可达，按需开启
+
+  - name: ddg_lite
+    type: ddg_lite
+    kind: web
+    weight: 0.9
+    enabled: false          # HTML 端点被限流时打开
+
+  - name: bing
+    type: bing
+    kind: web
+    weight: 0.95
+    enabled: true
+
+  - name: baidu
+    type: baidu
+    kind: web
+    weight: 0.9
+    enabled: true           # 大陆网络下的稳定默认引擎
+
+  - name: so360
+    type: so360
+    kind: web
+    weight: 0.85
+    enabled: true           # 百度弹验证码时的第二兜底
+
+  - name: mojeek
+    type: mojeek
+    kind: web
+    weight: 0.85
+    enabled: false          # 无 JS 时返回挑战页；有自建 searx 时优先用它
+
+  - name: searx_local
+    type: searx
+    kind: web
+    weight: 0.9
+    base: http://127.0.0.1:8888   # 自建 SearXNG，开启 json 输出
+    enabled: false
+
+  # ---------------- darknet ----------------
+  - name: ahmia
+    type: ahmia
+    kind: onion
+    weight: 1.0
+    base: https://ahmia.fi
+    path: /search/?q={q}
+    enabled: true
+
+  # clearnet 前端，直接返回 .onion 结果；Ahmia 挂掉时的主力
+  - name: onionsearchengine
+    type: onionsearchengine
+    kind: onion
+    weight: 0.95
+    base: https://onionsearchengine.com
+    path: /search.php?search={q}
+    enabled: true
+
+  # 目录型兜底：无论线上索引是否可用，都给出当前入口页
+  - name: onion_catalog
+    type: catalog
+    kind: onion
+    weight: 0.7
+    catalog: catalog/onion_index.json
+    max_sites: 12
+    enabled: true
+
+  # 任意 .onion 索引站，改 base 即可，无需写代码
+  - name: onion_index
+    type: onion_index
+    kind: onion
+    weight: 0.9
+    base: http://ONION_INDEX_HOST        # 占位：填当前可用索引站
+    path: /search?q={q}
+    via: tor
+    item: 'li.result'
+    link: 'a[href]'
+    title: 'a'
+    snippet: 'p'
+    enabled: false
+
+  # 纯正则模式，适配没有稳定 DOM 的索引页
+  - name: onion_regex
+    type: regex
+    kind: onion
+    weight: 0.8
+    base: http://ONION_INDEX_HOST
+    path: /search?q={q}
+    via: tor
+    item: '<li class="hit">'
+    link: '<a[^>]+href="([^"]+)"'
+    title: '<a[^>]*>(.*?)</a>'
+    snippet: '<p[^>]*>(.*?)</p>'
+    enabled: false
+
+  # ---------------- adult catalog ----------------
+  - name: adult_catalog
+    type: catalog
+    kind: adult
+    weight: 0.85
+    catalog: catalog/adult_sites.json
+    max_sites: 40
+    enabled: true
+
+  # ---------------- torrent ----------------
+  - name: magnet_catalog
+    type: catalog
+    kind: torrent
+    weight: 0.75
+    catalog: catalog/magnet_sources.json
+    max_sites: 20
+    enabled: true
+
+  - name: nyaa
+    type: nyaa
+    kind: torrent
+    weight: 0.9
+    base: https://nyaa.si
+    path: "/?f=0&c=0_0&q={q}"
+    enabled: false          # 需要时打开，直接抓取 magnet
+
+  - name: sukebei
+    type: nyaa
+    kind: torrent
+    weight: 0.9
+    base: https://sukebei.nyaa.si
+    path: "/?f=0&c=0_0&q={q}"
+    enabled: false

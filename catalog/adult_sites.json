@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "note": "catalog adapter 只生成站内搜索链接，不抓页面；{q} 会被替换为 URL 编码后的关键词。",
+  "sites": [
+    {"name": "Pornhub", "search": "https://www.pornhub.com/video/search?search={q}", "kind": "adult", "tags": ["tube", "hd"], "region": "global"},
+    {"name": "XVideos", "search": "https://www.xvideos.com/?k={q}", "kind": "adult", "tags": ["tube"], "region": "global"},
+    {"name": "XHamster", "search": "https://xhamster.com/search/{q}", "kind": "adult", "tags": ["tube"], "region": "global"},
+    {"name": "SpankBang", "search": "https://spankbang.com/s/{q}/", "kind": "adult", "tags": ["tube", "hd"], "region": "global"},
+    {"name": "EPorner", "search": "https://www.eporner.com/search/{q}/", "kind": "adult", "tags": ["tube", "hd"], "region": "global"},
+    {"name": "RedTube", "search": "https://www.redtube.com/?search={q}", "kind": "adult", "tags": ["tube"], "region": "global"},
+    {"name": "YouPorn", "search": "https://www.youporn.com/search/?query={q}", "kind": "adult", "tags": ["tube"], "region": "global"},
+    {"name": "Motherless", "search": "https://motherless.com/search?q={q}", "kind": "adult", "tags": ["tube", "amateur"], "region": "global"},
+    {"name": "MissAV", "search": "https://missav.com/search/{q}", "kind": "adult", "tags": ["jav", "stream"], "region": "jp"},
+    {"name": "JavBus", "search": "https://www.javbus.com/search/{q}", "kind": "adult", "tags": ["jav", "catalog"], "region": "jp"},
+    {"name": "JavLibrary", "search": "https://www.javlibrary.com/en/vl_searchbykeyword.php?keyword={q}", "kind": "adult", "tags": ["jav", "catalog"], "region": "jp"},
+    {"name": "SupJav", "search": "https://supjav.com/?s={q}", "kind": "adult", "tags": ["jav", "stream"], "region": "jp"},
+    {"name": "Hanime", "search": "https://hanime.tv/search?q={q}", "kind": "adult", "tags": ["hentai", "stream"], "region": "global"},
+    {"name": "nHentai", "search": "https://nhentai.net/search/?q={q}", "kind": "adult", "tags": ["doujin", "manga"], "region": "global"},
+    {"name": "E-Hentai", "search": "https://e-hentai.org/?f_search={q}", "kind": "adult", "tags": ["doujin", "gallery"], "region": "global"},
+    {"name": "Hitomi", "search": "https://hitomi.la/search.html?{q}", "kind": "adult", "tags": ["doujin", "gallery"], "region": "global"},
+    {"name": "Rule34", "search": "https://rule34.xxx/index.php?page=post&s=list&tags={q}", "kind": "adult", "tags": ["booru", "art"], "region": "global"},
+    {"name": "Gelbooru", "search": "https://gelbooru.com/index.php?page=post&s=list&tags={q}", "kind": "adult", "tags": ["booru", "art"], "region": "global"},
+    {"name": "Danbooru", "search": "https://danbooru.donmai.us/posts?tags={q}", "kind": "adult", "tags": ["booru", "art"], "region": "global"},
+    {"name": "e621", "search": "https://e621.net/posts?tags={q}", "kind": "adult", "tags": ["booru", "furry"], "region": "global"},
+    {"name": "Xbooru", "search": "https://xbooru.com/index.php?page=post&s=list&tags={q}", "kind": "adult", "tags": ["booru"], "region": "global"},
+    {"name": "Reddit NSFW", "search": "https://www.reddit.com/search/?q={q}&include_over_18=on", "kind": "adult", "tags": ["community", "index"], "region": "global"},
+    {"name": "F95Zone", "search": "https://f95zone.to/search/?q={q}", "kind": "adult", "tags": ["games", "forum"], "region": "global"},
+    {"name": "Github NSFW 索引", "search": "https://github.com/search?q={q}&type=repositories", "kind": "adult", "tags": ["index", "meta"], "region": "global", "note": "常有人把站点清单/爬虫脚本放在这里"}
+  ]
+}
