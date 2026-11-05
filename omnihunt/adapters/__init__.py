@@ -17,6 +17,22 @@ from .clearnet import (
     So360Adapter,
 )
 from .onion import AhmiaAdapter, OnionIndexAdapter, OnionSearchEngineAdapter
+from .extra import (
+    BingImagesAdapter,
+    BilibiliVideoAdapter,
+    BraveAdapter,
+    EcosiaAdapter,
+    InvidiousAdapter,
+    MarginaliaAdapter,
+    OpenverseAdapter,
+    PexelsLikeAdapter,
+    SearxPoolAdapter,
+    SogouAdapter,
+    StartpageAdapter,
+    WikimediaAdapter,
+    YandexAdapter,
+    YandexImagesAdapter,
+)
 from .regex import RegexAdapter
 from .torrent import MagnetPageAdapter, NyaaAdapter
 
@@ -35,6 +51,23 @@ ADAPTER_TYPES = {
     "catalog": CatalogAdapter,
     "nyaa": NyaaAdapter,
     "magnet": MagnetPageAdapter,
+    # ---- 新增：更多通用引擎 ----
+    "yandex": YandexAdapter,
+    "brave": BraveAdapter,
+    "startpage": StartpageAdapter,
+    "ecosia": EcosiaAdapter,
+    "sogou": SogouAdapter,
+    "marginalia": MarginaliaAdapter,
+    "searx_pool": SearxPoolAdapter,
+    # ---- 新增：图片垂类 ----
+    "openverse": OpenverseAdapter,
+    "wikimedia": WikimediaAdapter,
+    "bing_images": BingImagesAdapter,
+    "yandex_images": YandexImagesAdapter,
+    # ---- 新增：视频垂类 ----
+    "bilibili_video": BilibiliVideoAdapter,
+    "invidious": InvidiousAdapter,
+    "stock_video": PexelsLikeAdapter,
 }
 
 __all__ = [

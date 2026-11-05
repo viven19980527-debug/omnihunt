@@ -151,3 +151,90 @@ engines:
     base: https://sukebei.nyaa.si
     path: "/?f=0&c=0_0&q={q}"
     enabled: false
+
+  # ================= 新增：更多通用引擎 =================
+  - name: yandex
+    type: yandex
+    kind: web
+    weight: 0.95
+    enabled: true           # 反爬较松，覆盖面广
+
+  - name: brave
+    type: brave
+    kind: web
+    weight: 0.90
+    enabled: true
+
+  - name: startpage
+    type: startpage
+    kind: web
+    weight: 0.85
+    enabled: true
+
+  - name: ecosia
+    type: ecosia
+    kind: web
+    weight: 0.80
+    enabled: true
+
+  - name: sogou
+    type: sogou
+    kind: web
+    weight: 0.80
+    enabled: true           # 中文长尾覆盖好
+
+  - name: marginalia
+    type: marginalia
+    kind: web
+    weight: 0.70
+    enabled: false          # 小众站/独立博客，按需
+
+  - name: searx_pool
+    type: searx_pool
+    kind: web
+    weight: 1.00
+    enabled: true           # 6 个公共实例轮询，任一可用即出结果
+
+  # ================= 新增：图片垂类（App 内看，无广告） =================
+  - name: bing_images
+    type: bing_images
+    kind: image
+    weight: 1.00
+    enabled: true
+
+  - name: yandex_images
+    type: yandex_images
+    kind: image
+    weight: 0.95
+    enabled: true
+
+  - name: openverse
+    type: openverse
+    kind: image
+    weight: 0.90
+    enabled: true           # 官方 API，无 key，无广告
+
+  - name: wikimedia
+    type: wikimedia
+    kind: image
+    weight: 0.85
+    enabled: true           # 官方 API
+
+  # ================= 新增：视频垂类（App 内播，无广告） =================
+  - name: bilibili_video
+    type: bilibili_video
+    kind: video
+    weight: 1.00
+    enabled: true
+
+  - name: invidious
+    type: invidious
+    kind: video
+    weight: 0.90
+    enabled: true           # YouTube 免广告前段
+
+  - name: stock_video
+    type: stock_video
+    kind: video
+    weight: 0.70
+    enabled: false          # 需要时打开（Pexels 素材视频）

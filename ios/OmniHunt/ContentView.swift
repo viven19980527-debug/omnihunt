@@ -215,6 +215,10 @@ struct ContentView: View {
             .padding(.top, 50)
         } else if store.results.isEmpty {
             emptyState
+        } else if store.kind == .image {
+            ImageGrid(results: store.results)
+        } else if store.kind == .video {
+            VideoList(results: store.results)
         } else {
             LazyVStack(spacing: 10) {
                 ForEach(store.results) { result in

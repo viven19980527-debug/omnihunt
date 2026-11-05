@@ -21,7 +21,7 @@ struct KindBadge: View {
 struct ResultRow: View {
     let result: SearchResult
 
-    @Environment(\.openURL) private var openURL
+    @State private var browser: URL?
     @State private var copied = false
 
     var body: some View {
@@ -97,6 +97,7 @@ struct ResultRow: View {
                 ShareLink(item: url)
             }
         }
+        .sheet(item: $browser) { url in InAppBrowser(url: url) }
     }
 
     private func copy(_ text: String) {
@@ -108,7 +109,7 @@ struct ResultRow: View {
     }
 
     private func open(_ string: String) {
-        guard let url = URL(string: string) else { return }
-        openURL(url)
+        guard let url = URL(string: string), url.scheme?.hasPrefix("http") == true else { return }
+        browser = url          // 走 App 内拦截广告的浏览器
     }
 }

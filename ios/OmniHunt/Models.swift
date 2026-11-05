@@ -4,6 +4,8 @@ import Foundation
 
 enum ResultKind: String, Codable, CaseIterable, Identifiable {
     case web
+    case image
+    case video
     case onion
     case adult
     case torrent
@@ -14,6 +16,8 @@ enum ResultKind: String, Codable, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .web: return "网页"
+        case .image: return "图片"
+        case .video: return "视频"
         case .onion: return "暗网"
         case .adult: return "成人"
         case .torrent: return "磁力"
@@ -24,6 +28,8 @@ enum ResultKind: String, Codable, CaseIterable, Identifiable {
     var englishLabel: String {
         switch self {
         case .web: return "web"
+        case .image: return "image"
+        case .video: return "video"
         case .onion: return "onion"
         case .adult: return "adult"
         case .torrent: return "torrent"
@@ -113,6 +119,10 @@ struct SearchResult: Codable, Identifiable, Hashable {
 
     var id: String { url }
     var magnet: String? { extra?["magnet"]?.stringValue }
+    var thumbURL: String? { extra?["thumb"]?.stringValue }
+    var fullURL: String? { extra?["full"]?.stringValue }
+    var duration: String? { extra?["duration"]?.stringValue }
+    var isVisual: Bool { kind == .image || kind == .video }
     var allSources: [String] { (sources?.isEmpty == false ? sources : nil) ?? [source] }
 }
 
