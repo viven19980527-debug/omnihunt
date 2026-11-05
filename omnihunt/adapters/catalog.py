@@ -42,6 +42,8 @@ class CatalogAdapter(Adapter):
 
     def search(self, query: str, limit: int) -> List[Result]:
         q = quote_plus(query)
+        # 直链只是「跳转入口」，权重压到真实内容之下
+        direct_penalty = float(self.spec.get("direct_penalty", 0.35))
         out: List[Result] = []
         max_sites = int(self.spec.get("max_sites", 40))
         for site in self._sites()[:max_sites]:
@@ -61,7 +63,7 @@ class CatalogAdapter(Adapter):
                     snippet=note,
                     source=f"{self.name}:{name}",
                     kind=kind,
-                    weight=self.weight,
+                    weight=self.weight * direct_penalty,
                     extra={
                         "direct": True,
                         "site": name,

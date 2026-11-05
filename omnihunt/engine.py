@@ -199,7 +199,10 @@ class SearchEngine:
             natural = merge_and_rank(results, query, limit=max(0, limit - len(pattern_results)), kind_filter=kinds)
             ranked = natural + pattern_results[: max(0, limit - len(natural))]
         else:
-            ranked = merge_and_rank(results, query, limit=limit, kind_filter=kinds)
+            if kind_set is None:
+                ranked = self._rank_with_quotas(results, query, limit)
+            else:
+                ranked = merge_and_rank(results, query, limit=limit, kind_filter=kinds)
 
         stats["raw"] = len(results) + len(pattern_results)
         stats["unique"] = len(ranked)
@@ -213,6 +216,44 @@ class SearchEngine:
             took_ms=int((time.perf_counter() - started) * 1000),
             cached=bool(selected) and stats["cached_engines"] == len(selected),
         )
+
+    # ---------------------------------------------------------------- quotas
+    # 「全部」模式下普通网页引擎会占满名额，把磁力/暗网/图片/视频挤掉。
+    # 这里给非 web 类别保留固定份额，保证暗面内容一定出现在结果中。
+    QUOTA_KINDS = ("onion", "torrent", "image", "video", "adult")
+    QUOTA_SHARE = {"onion": 0.15, "torrent": 0.15, "image": 0.12, "video": 0.10, "adult": 0.10}
+
+    def _rank_with_quotas(self, results, query: str, limit: int):
+        ranked = merge_and_rank(results, query, limit=max(limit * 3, 60))
+        buckets = {k: [] for k in self.QUOTA_KINDS}
+        rest = []
+        for r in ranked:
+            if r.kind in buckets:
+                buckets[r.kind].append(r)
+            else:
+                rest.append(r)
+
+        out = []
+        used = set()
+        for kind, share in self.QUOTA_SHARE.items():
+            take = max(1, int(limit * share))
+            for r in buckets[kind][:take]:
+                out.append(r)
+                used.add(id(r))
+        for r in rest:
+            if len(out) >= limit:
+                break
+            out.append(r)
+            used.add(id(r))
+        if len(out) < limit:
+            for r in ranked:
+                if len(out) >= limit:
+                    break
+                if id(r) not in used:
+                    out.append(r)
+                    used.add(id(r))
+        return out[:limit]
+
 
     # --------------------------------------------------------------- internal
     def _run_one(self, adapter, query: str, per_engine: int, cache_on: bool):

@@ -5,6 +5,8 @@ http:
   max_bytes: 3000000   # 单页最大读取字节
   tor_socks: "127.0.0.1:9050"   # Tor SOCKS5，可用 OMNI_TOR_SOCKS 覆盖
   http_proxy: ""                 # 可选 HTTP 代理，例如 http://127.0.0.1:7890
+  per_engine_timeout: 8          # 单引擎墙钟上限（秒）；暗面站点不通时快速放弃
+  socks_proxy: ""                # 可选 SOCKS5，例如 socks5h://127.0.0.1:7890
 
 cache:
   enabled: true
@@ -19,6 +21,73 @@ search:
 # type 可选: duckduckgo | ddg_lite | bing | mojeek | searx | ahmia |
 #            onion_index | regex | catalog | nyaa | magnet
 engines:
+
+  # ================= 暗面：真实内容（普通引擎搜不到） =================
+  - name: nyaa_rss
+    type: nyaa_rss
+    kind: torrent
+    weight: 1.00
+    enabled: true           # 真实 magnet + 体积 + 做种数
+
+  - name: sukebei_rss
+    type: sukebei_rss
+    kind: torrent
+    weight: 1.00
+    enabled: true           # 成人向磁力（sukebei）
+
+  - name: rule34
+    type: booru
+    kind: image
+    weight: 1.00
+    enabled: true
+    api: "https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit={limit}&tags={q}"
+    host: rule34.xxx
+
+  - name: danbooru
+    type: booru
+    kind: image
+    weight: 0.95
+    enabled: true
+    api: "https://danbooru.donmai.us/posts.json?tags={q}&limit={limit}"
+    host: danbooru.donmai.us
+
+  - name: e621
+    type: booru
+    kind: image
+    weight: 0.85
+    enabled: true
+    api: "https://e621.net/posts.json?tags={q}&limit={limit}"
+    host: e621.net
+
+  - name: gelbooru
+    type: booru
+    kind: image
+    weight: 0.90
+    enabled: true
+    api: "https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={limit}&tags={q}"
+    host: gelbooru.com
+
+  - name: javbus
+    type: jav_page
+    kind: video
+    weight: 0.95
+    enabled: true
+    search: "https://www.javbus.com/search/{q}"
+    host: "https://www.javbus.com"
+
+  - name: missav
+    type: jav_page
+    kind: video
+    weight: 0.95
+    enabled: true
+    search: "https://missav.com/search/{q}"
+    host: "https://missav.com"
+
+  - name: ahmia_clearnet
+    type: ahmia_clearnet
+    kind: onion
+    weight: 1.00
+    enabled: true           # 无需 Tor，直接出 .onion 结果
   # ---------------- clearnet ----------------
   - name: duckduckgo
     type: duckduckgo

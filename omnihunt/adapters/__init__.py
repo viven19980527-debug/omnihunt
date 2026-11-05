@@ -16,6 +16,13 @@ from .clearnet import (
     SearxNGAdapter,
     So360Adapter,
 )
+from .dark import (
+    AhmiaClearnetAdapter,
+    BooruAdapter,
+    JavPageAdapter,
+    NyaaRSSAdapter,
+    SukebeiRSSAdapter,
+)
 from .onion import AhmiaAdapter, OnionIndexAdapter, OnionSearchEngineAdapter
 from .extra import (
     BingImagesAdapter,
@@ -68,6 +75,12 @@ ADAPTER_TYPES = {
     "bilibili_video": BilibiliVideoAdapter,
     "invidious": InvidiousAdapter,
     "stock_video": PexelsLikeAdapter,
+    # ---- 暗面：真实内容（magnet / 图 / 番号 / onion）----
+    "nyaa_rss": NyaaRSSAdapter,
+    "sukebei_rss": SukebeiRSSAdapter,
+    "booru": BooruAdapter,
+    "jav_page": JavPageAdapter,
+    "ahmia_clearnet": AhmiaClearnetAdapter,
 }
 
 __all__ = [
