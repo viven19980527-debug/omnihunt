@@ -58,8 +58,10 @@ final class DarkStore: ObservableObject {
         await withTaskGroup(of: (String, [DarkHit]).self) { group in
             group.addTask { ("nyaa", await self.nyaaRSS("https://nyaa.si", enc, "nyaa")) }
             group.addTask { ("sukebei", await self.nyaaRSS("https://sukebei.nyaa.si", enc, "sukebei")) }
-            group.addTask { ("rule34", await self.booru(
-                "https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit=20&tags=\(tag)", "rule34", "rule34.xxx") }
+            group.addTask {
+                let url = "https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit=20&tags=\(tag)"
+                return ("rule34", await self.booru(url, "rule34", "rule34.xxx"))
+            }
             group.addTask { ("danbooru", await self.danbooru(tag)) }
             group.addTask { ("e621", await self.e621(tag)) }
             group.addTask { ("ahmia", await self.ahmia(enc)) }
