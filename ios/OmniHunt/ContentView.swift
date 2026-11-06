@@ -19,6 +19,19 @@ struct ContentView: View {
                     searchBar
                     chips
                     metaBar
+                    if store.localMode {
+                        HStack(spacing: 6) {
+                            Image(systemName: "iphone.radiowaves.left.and.right")
+                                .font(.system(size: 11))
+                            Text("手机直连模式（电脑未连接）")
+                                .font(.system(size: 11, weight: .semibold))
+                            Spacer()
+                        }
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(Theme.accent.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
                     errorPanel
                     results
                 }
@@ -244,7 +257,7 @@ struct ContentView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Theme.ink)
             Text(store.hasSearched
-                 ? "换个关键词，或切回「全部」；暗网索引对中文关键词覆盖很差。"
+                 ? "换个关键词；boory 图站只认英文标签，暗网索引对中文覆盖差。"
                  : "一次查询同时打 clearnet 引擎、.onion 索引、成人站目录与磁力索引。")
                 .font(.system(size: 12.5))
                 .foregroundStyle(Theme.muted)

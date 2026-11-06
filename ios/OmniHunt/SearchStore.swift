@@ -15,6 +15,8 @@ final class SearchStore: ObservableObject {
     @Published private(set) var rawCount: Int = 0
     @Published private(set) var isLoading: Bool = false
     @Published var lastError: String?
+    /// true = 电脑连不上，本次结果来自手机直连引擎
+    @Published private(set) var localMode: Bool = false
 
     private var task: Task<Void, Never>?
 
@@ -45,6 +47,7 @@ final class SearchStore: ObservableObject {
                     self.isLoading = false
                     return
                 }
+                self.localMode = false
                 self.apply(response)
                 self.isLoading = false
             } catch {
@@ -53,7 +56,22 @@ final class SearchStore: ObservableObject {
                     self.isLoading = false
                     return
                 }
-                self.lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                // 电脑连不上：自动改用手机直连引擎，不再显示「连不上服务器」
+                let local = await OnDeviceEngine.search(query: trimmed, kind: kind, limit: limit)
+                if !local.isEmpty {
+                    self.results = local
+                    self.errors = []
+                    self.stats = nil
+                    self.tookMS = 0
+                    self.cached = false
+                    self.rawCount = local.count
+                    self.localMode = true
+                    self.lastError = nil
+                    self.isLoading = false
+                    return
+                }
+                self.localMode = true
+                self.lastError = "电脑未连接，手机直连也没抓到结果。检查 VPN 或换英文关键词。"
                 self.results = []
                 self.errors = []
                 self.stats = nil
