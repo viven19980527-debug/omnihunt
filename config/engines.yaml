@@ -93,37 +93,37 @@ engines:
     type: duckduckgo
     kind: web
     weight: 1.0
-    enabled: false          # html.duckduckgo.com 在部分网络（含大陆）不可达，按需开启
+    enabled: true          # html.duckduckgo.com 在部分网络（含大陆）不可达，按需开启
 
   - name: ddg_lite
     type: ddg_lite
     kind: web
     weight: 0.9
-    enabled: false          # HTML 端点被限流时打开
+    enabled: true          # HTML 端点被限流时打开
 
   - name: bing
     type: bing
     kind: web
     weight: 0.95
-    enabled: true
+    enabled: false          # 有地区审查，改用 yandex/brave/startpage
 
   - name: baidu
     type: baidu
     kind: web
     weight: 0.9
-    enabled: true           # 大陆网络下的稳定默认引擎
+    enabled: false           # 大陆网络下的稳定默认引擎
 
   - name: so360
     type: so360
     kind: web
     weight: 0.85
-    enabled: true           # 百度弹验证码时的第二兜底
+    enabled: false           # 百度弹验证码时的第二兜底
 
   - name: mojeek
     type: mojeek
     kind: web
     weight: 0.85
-    enabled: false          # 无 JS 时返回挑战页；有自建 searx 时优先用它
+    enabled: true          # 无 JS 时返回挑战页；有自建 searx 时优先用它
 
   - name: searx_local
     type: searx
@@ -250,13 +250,13 @@ engines:
     type: sogou
     kind: web
     weight: 0.80
-    enabled: true           # 中文长尾覆盖好
+    enabled: false          # 国内引擎，已按需求关闭
 
   - name: marginalia
     type: marginalia
     kind: web
     weight: 0.70
-    enabled: false          # 小众站/独立博客，按需
+    enabled: true          # 小众站/独立博客，按需
 
   - name: searx_pool
     type: searx_pool

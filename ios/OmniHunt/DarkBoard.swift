@@ -69,7 +69,7 @@ final class DarkStore: ObservableObject {
             await withTaskGroup(of: (String, [DarkHit]).self) { group in
                 group.addTask { ("sukebei", await self.nyaaRSS("https://sukebei.nyaa.si", enc, "sukebei")) }
                 group.addTask { ("nyaa", await self.nyaaRSS("https://nyaa.si", enc, "nyaa")) }
-                group.addTask { ("bing", await self.bingWeb(enc)) }
+                group.addTask { ("ddg", await self.ddgWeb(enc)) }
                 group.addTask { ("ahmia", await self.ahmia(enc)) }
                 group.addTask { ("onionse", await self.onionSE(enc)) }
                 if ascii {
@@ -179,9 +179,8 @@ final class DarkStore: ObservableObject {
             group.addTask { ("ahmia", await self.ahmia(enc)) }
             group.addTask { ("onionse", await self.onionSE(enc)) }
             // ---- 手机端直连网页引擎（不需要电脑）----
-            group.addTask { ("bing", await self.bingWeb(enc)) }
-            group.addTask { ("baidu", await self.baiduWeb(enc)) }
-            group.addTask { ("wiki", await self.wiki(enc)) }
+            group.addTask { ("ddg", await self.ddgWeb(enc)) }
+            group.addTask { ("yandex", await self.yandexWeb(enc)) }
             group.addTask { ("bili", await self.bilibiliVideo(enc)) }
             group.addTask { ("bingimg", await self.bingImages(enc)) }
 
@@ -295,32 +294,40 @@ final class DarkStore: ObservableObject {
         return out
     }
 
-    private func baiduWeb(_ q: String) async -> [DarkHit] {
-        guard let html = await fetch("https://www.baidu.com/s?wd=\(q)") else { return [] }
+    // ---- DuckDuckGo（无审查、无广告联盟）----
+    private func ddgWeb(_ q: String) async -> [DarkHit] {
+        guard let html = await fetch("https://html.duckduckgo.com/html/?q=\(q)") else { return [] }
         var out: [DarkHit] = []
         for block in matches(html, "<div class=\"result[^\"]*\"[\\s\\S]*?</div>\\s*</div>") {
-            let href = first(block, "href=\"(https?://[^\"]+)\"")
-            let title = clean(first(block, "<h3[^>]*>([\\s\\S]*?)</h3>"))
-            guard !href.isEmpty, !title.isEmpty else { continue }
-            out.append(DarkHit(source: "baidu", title: title, page: href))
+            var href = first(block, "href=\"([^\"]+)\"")
+            href = href.replacingOccurrences(of: "&amp;", with: "&")
+            // DDG 跳转链接：/l/?uddg=<encoded>
+            if let r = href.range(of: "uddg=") {
+                let enc = String(href[r.upperBound...]).components(separatedBy: "&").first ?? ""
+                href = enc.removingPercentEncoding ?? enc
+            }
+            let title = clean(first(block, "class=\"result__a[^\"]*\"[^>]*>([\\s\\S]*?)</a>"))
+            let snip = clean(first(block, "class=\"result__snippet[^\"]*\"[^>]*>([\\s\\S]*?)</a>"))
+            guard href.hasPrefix("http"), !title.isEmpty else { continue }
+            out.append(DarkHit(source: "ddg", title: title, page: href, size: snip))
             if out.count >= 15 { break }
         }
         return out
     }
 
-    private func wiki(_ q: String) async -> [DarkHit] {
-        guard let raw = await fetch("https://zh.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=10&srsearch=\(q)"),
-              let data = raw.data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let q1 = obj["query"] as? [String: Any],
-              let arr = q1["search"] as? [[String: Any]] else { return [] }
-        return arr.compactMap { item in
-            guard let title = item["title"] as? String else { return nil }
-            let enc = title.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? title
-            let snip = (item["snippet"] as? String ?? "").replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-            return DarkHit(source: "wiki", title: title,
-                           page: "https://zh.wikipedia.org/wiki/\(enc)", size: snip)
+    // ---- Yandex（对中文/俄文内容审查最松）----
+    private func yandexWeb(_ q: String) async -> [DarkHit] {
+        guard let html = await fetch("https://yandex.com/search/?text=\(q)") else { return [] }
+        var out: [DarkHit] = []
+        for block in matches(html, "<li class=\"serp-item[\"]?[\\s\\S]*?</li>") {
+            let href = first(block, "href=\"(https?://[^\"]+)\"")
+            let title = clean(first(block, "<h2[^>]*>([\\s\\S]*?)</h2>"))
+            let snip = clean(first(block, "<span class=\"[^\"]*TextContainer[^\"]*\"[^>]*>([\\s\\S]*?)</span>"))
+            guard href.hasPrefix("http"), !title.isEmpty else { continue }
+            out.append(DarkHit(source: "yandex", title: title, page: href, size: snip))
+            if out.count >= 15 { break }
         }
+        return out
     }
 
     private func bilibiliVideo(_ q: String) async -> [DarkHit] {

@@ -145,6 +145,37 @@ class SearchEngine:
         stats: Dict[str, Any] = {"engines": [], "raw": 0, "cached_engines": 0}
 
         if selected:
+            # 目录型适配器（catalog / magnet / onion 直链）不发网络请求，
+            # 先在主线程跑完。否则它们会排在 8 个网络任务后面被整轮超时吃掉。
+            direct_adapter = [a for a in selected if getattr(a, "direct", False)]
+            net_adapter = [a for a in selected if not getattr(a, "direct", False)]
+            for adapter in direct_adapter:
+                t0 = time.perf_counter()
+                try:
+                    got = adapter.search(query, max(1, min(per_engine, 50))) or []
+                    for pos, item in enumerate(got):
+                        item.position = pos
+                        if not item.weight:
+                            item.weight = adapter.weight
+                        if not item.source:
+                            item.source = adapter.name
+                        if not item.sources:
+                            item.sources = [item.source]
+                    results.extend(got)
+                    stats["engines"].append({
+                        "name": adapter.name, "kind": adapter.kind,
+                        "count": len(got),
+                        "ms": int((time.perf_counter() - t0) * 1000), "cached": False,
+                    })
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(EngineError(adapter.name, f"{type(exc).__name__}: {exc}"))
+                    stats["engines"].append({
+                        "name": adapter.name, "kind": adapter.kind, "count": 0, "error": str(exc),
+                    })
+
+            selected = net_adapter
+
+        if selected:
             # Bound each socket by the search budget so a dead network cannot
             # hold the worker pool far past the wall-clock deadline. Retries
             # share the same budget instead of doubling it.
