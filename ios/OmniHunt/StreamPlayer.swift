@@ -10,42 +10,48 @@ struct StreamSnifferView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var stream: URL?
     @State private var playURL: URL?
+    @State private var reloadKey = UUID()
     @State private var hint = "正在加载页面…"
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
-                SnifferWeb(url: url, onStream: { found in
-                    stream = found
-                    hint = "已抓到播放地址"
-                }, onStatus: { s in hint = s })
-
-                VStack(spacing: 8) {
-                    Text(hint).font(.system(size: 11)).foregroundStyle(.white.opacity(0.8))
+            SnifferWeb(url: url, onStream: { found in
+                stream = found
+                hint = "已抓到播放地址"
+            }, onStatus: { s in hint = s })
+            .ignoresSafeArea(edges: .bottom)
+            .safeAreaInset(edge: .bottom) {
+                HStack(spacing: 10) {
+                    Text(hint)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(1)
+                    Spacer(minLength: 6)
                     Button {
                         playURL = stream
                     } label: {
-                        Label(stream == nil ? "正在嗅探播放地址…" : "▶ 立即播放",
+                        Label(stream == nil ? "嗅探中…" : "▶ 播放",
                               systemImage: "play.fill")
-                            .font(.system(size: 15, weight: .bold))
-                            .padding(.horizontal, 22).padding(.vertical, 12)
-                            .background(stream == nil ? Color.gray : Color.green)
-                            .foregroundStyle(.black)
+                            .font(.system(size: 14, weight: .bold))
+                            .padding(.horizontal, 16).padding(.vertical, 9)
+                            .background(stream == nil ? Theme.panel : Theme.accent)
+                            .foregroundStyle(stream == nil ? Theme.dim : .black)
                             .clipShape(Capsule())
                     }
                     .disabled(stream == nil)
                 }
-                .padding(.bottom, 18)
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(.ultraThinMaterial)
             }
-            .ignoresSafeArea(edges: .bottom)
             .navigationTitle("嗅探播放")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) { Button("完成") { dismiss() } }
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("刷新") { stream = nil; hint = "重新嗅探…" }
+                    Button("重新嗅探") { stream = nil; hint = "重新嗅探…"; reloadKey = UUID() }
                 }
             }
+            .id(reloadKey)
             .fullScreenCover(item: $playURL) { u in VideoPlayerView(url: u) }
         }
     }

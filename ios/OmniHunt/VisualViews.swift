@@ -46,6 +46,12 @@ enum AdBlocker {
     }
 }
 
+extension Notification.Name {
+    static let omniWebBack = Notification.Name("omni.web.back")
+    static let omniWebForward = Notification.Name("omni.web.forward")
+    static let omniWebReload = Notification.Name("omni.web.reload")
+}
+
 // MARK: - 无广告内置浏览器
 
 struct BrowserTarget: Identifiable {
@@ -53,8 +59,16 @@ struct BrowserTarget: Identifiable {
     let url: URL
 }
 
+final class WebRef: ObservableObject {
+    weak var view: WKWebView?
+    func goBack() { if view?.canGoBack == true { view?.goBack() } }
+    func goForward() { if view?.canGoForward == true { view?.goForward() } }
+    func reload() { view?.reload() }
+}
+
 struct SafeBrowser: UIViewRepresentable {
     let url: URL
+    var ref: WebRef? = nil
 
     func makeCoordinator() -> Coord { Coord() }
 
@@ -65,9 +79,13 @@ struct SafeBrowser: UIViewRepresentable {
         cfg.mediaTypesRequiringUserActionForPlayback = .all
         cfg.allowsInlineMediaPlayback = true
         let wv = WKWebView(frame: .zero, configuration: cfg)
+        wv.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) "
+            + "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
         wv.uiDelegate = context.coordinator
         wv.navigationDelegate = context.coordinator
         wv.allowsBackForwardNavigationGestures = true
+        wv.allowsLinkPreview = true
+        ref?.view = wv
         AdBlocker.install { list in
             if let list = list {
                 wv.configuration.userContentController.add(list)
@@ -79,12 +97,22 @@ struct SafeBrowser: UIViewRepresentable {
 
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
+    static let backNote = Notification.Name.omniWebBack
+
     final class Coord: NSObject, WKUIDelegate, WKNavigationDelegate {
-        /// 吞掉所有新窗口请求（弹窗广告入口）
+        /// 站点大量链接是 target=_blank。以前直接 return nil → 点了没反应。
+        /// 现在：广告弹窗仍拦（about:blank/无 URL），正常链接改在同窗打开。
         func webView(_ webView: WKWebView,
                      createWebViewWith configuration: WKWebViewConfiguration,
                      for navigationAction: WKNavigationAction,
                      windowFeatures: WKWindowFeatures) -> WKWebView? {
+            guard let url = navigationAction.request.url,
+                  let scheme = url.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https",
+                  url.absoluteString != "about:blank" else {
+                return nil
+            }
+            webView.load(URLRequest(url: url))
             return nil
         }
     }
@@ -93,11 +121,21 @@ struct SafeBrowser: UIViewRepresentable {
 struct InAppBrowser: View {
     let url: URL
     @Environment(\.dismiss) var dismiss
+    @State private var webRef = WebRef()
 
     var body: some View {
         NavigationStack {
-            SafeBrowser(url: url)
+            SafeBrowser(url: url, ref: webRef)
                 .ignoresSafeArea(edges: .bottom)
+                .onReceive(NotificationCenter.default.publisher(for: .omniWebBack)) { _ in
+                    webRef.goBack()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .omniWebForward)) { _ in
+                    webRef.goForward()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .omniWebReload)) { _ in
+                    webRef.reload()
+                }
                 .navigationTitle("浏览")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -105,7 +143,17 @@ struct InAppBrowser: View {
                         Button("完成") { dismiss() }
                     }
                     ToolbarItem(placement: .navigationBarLeading) {
-                        Link(destination: url) { Image(systemName: "safari") }
+                        HStack(spacing: 14) {
+                            Button { NotificationCenter.default.post(name: .omniWebBack, object: nil) } label: {
+                                Image(systemName: "chevron.backward")
+                            }
+                            Button { NotificationCenter.default.post(name: .omniWebForward, object: nil) } label: {
+                                Image(systemName: "chevron.forward")
+                            }
+                            Button { NotificationCenter.default.post(name: .omniWebReload, object: nil) } label: {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                        }
                     }
                 }
         }
