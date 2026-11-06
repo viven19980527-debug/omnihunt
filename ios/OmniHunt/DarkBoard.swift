@@ -95,6 +95,53 @@ final class DarkStore: ObservableObject {
         running = false
     }
 
+
+    // MARK: 中文视频站（直接播，不用种子）
+
+    @Published var videos: [DarkHit] = []
+
+    /// 中文站：missav 有 /cn/ 中文界面，标题多为中文
+    private let videoHosts = ["https://missav.ws", "https://missav.ai", "https://missav.com"]
+
+    func runVideo() async {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty, !running else { return }
+        running = true
+        videos = []; log = []
+        let enc = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
+
+        for host in videoHosts {
+            if let hits = await missavCN(host, enc), !hits.isEmpty {
+                videos = hits
+                log.append("missav(\(host)): \(hits.count) 条")
+                break
+            }
+            log.append("missav(\(host)): 不可用")
+        }
+        running = false
+    }
+
+    private func missavCN(_ host: String, _ q: String) async -> [DarkHit]? {
+        guard let html = await fetch("\(host)/cn/search/\(q)") else { return nil }
+        var out: [DarkHit] = []
+        // 卡片：<a href="https://host/cn/xxxx" ...><img data-src=...><div ...>标题</div>
+        let blocks = matches(html, "<a[^>]+href=\"([^\"]+/cn/[^\"]+)\"[\\s\\S]{0,600}?</a>")
+        var seen = Set<String>()
+        for b in blocks {
+            let href = first(b, "href=\"([^\"]+/cn/[^\"]+)\"")
+            guard !href.isEmpty, seen.insert(href).inserted else { continue }
+            let page = href.hasPrefix("http") ? href : host + href
+            var thumb = first(b, "(?:data-src|src)=\"([^\"]+\\.(?:jpg|jpeg|png|webp)[^\"]*)\"")
+            if thumb.hasPrefix("//") { thumb = "https:" + thumb }
+            var title = clean(first(b, "class=\"text-secondary[^\"]*\"[^>]*>([\\s\\S]*?)</"))
+            if title.isEmpty { title = clean(first(b, "alt=\"([^\"]+)\"")) }
+            if title.isEmpty { title = "视频" }
+            out.append(DarkHit(source: "missav", title: title, page: page, thumb: thumb))
+            if out.count >= 24 { break }
+        }
+        return out
+    }
+
     func run() async {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty, !running else { return }
@@ -407,6 +454,7 @@ struct DarkBoardView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var store = DarkStore()
     @State private var browser: BrowserTarget?
+    @State private var sniff: BrowserTarget?
     @State private var copied: String?
 
     var body: some View {
@@ -417,6 +465,7 @@ struct DarkBoardView: View {
                     presetRow
                     if !store.log.isEmpty { logRow }
                     if store.running { ProgressView().tint(Theme.accent) }
+                    if !store.videos.isEmpty { videoSection }
                     if !store.webs.isEmpty { webSection }
                     if !store.torrents.isEmpty { torrentSection }
                     if !store.images.isEmpty { imageSection }
@@ -434,6 +483,7 @@ struct DarkBoardView: View {
                 ToolbarItem(placement: .navigationBarTrailing) { Button("完成") { dismiss() } }
             }
             .sheet(item: $browser) { t in InAppBrowser(url: t.url) }
+            .sheet(item: $sniff) { t in StreamSnifferView(url: t.url) }
         }
     }
 
@@ -466,6 +516,17 @@ struct DarkBoardView: View {
     private var presetRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
+                Button {
+                    Task { await store.runVideo() }
+                } label: {
+                    Text("▶ 视频直连")
+                        .font(.system(size: 12, weight: .bold))
+                        .padding(.horizontal, 12).padding(.vertical, 7)
+                        .background(Theme.accent)
+                        .foregroundStyle(.black)
+                        .clipShape(Capsule())
+                }
+                .disabled(store.running)
                 ForEach(darkPresets) { p in
                     Button {
                         Task { await store.runPack(p.queries) }
@@ -510,6 +571,42 @@ struct DarkBoardView: View {
         Text(store.log.joined(separator: " · "))
             .font(.system(size: 10, design: .monospaced))
             .foregroundStyle(Theme.dim)
+    }
+
+    private var videoSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionTitle("视频 \(store.videos.count) · 点开直接播")
+            ForEach(store.videos) { h in
+                Button {
+                    if let u = URL(string: h.page) { sniff = BrowserTarget(url: u) }
+                } label: {
+                    HStack(spacing: 10) {
+                        ZStack {
+                            AsyncImage(url: URL(string: h.thumb)) { phase in
+                                if case .success(let img) = phase {
+                                    img.resizable().aspectRatio(contentMode: .fill)
+                                } else {
+                                    ZStack { Theme.surface; Image(systemName: "play.rectangle").foregroundStyle(Theme.dim) }
+                                }
+                            }
+                            .frame(width: 120, height: 68).clipped()
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 22)).foregroundStyle(.white.opacity(0.9))
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        Text(h.title)
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(Theme.ink).lineLimit(3)
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(9)
+                    .background(Theme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     private var webSection: some View {
