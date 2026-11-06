@@ -15,7 +15,7 @@ final class DarkStore: ObservableObject {
     @Published var webs: [DarkHit] = []
 
     struct DarkHit: Identifiable {
-        let id = UUID()
+        var id: String { page.isEmpty ? "\(source)|\(title)" : page }
         let source: String
         let title: String
         let page: String
@@ -47,11 +47,16 @@ final class DarkStore: ObservableObject {
         }
     }
 
+    /// 所有出口统一的清空入口（之前漏清 videos/webs 导致串数据）
+    private func resetBuckets() {
+        torrents = []; images = []; onions = []; webs = []; videos = []; log = []
+    }
+
     /// 一次跑一组词，结果合并（预设词包用）
     func runPack(_ queries: [String]) async {
         guard !running, !queries.isEmpty else { return }
         running = true
-        torrents = []; images = []; onions = []; log = []
+        resetBuckets()
         var seenMagnet = Set<String>()
         var seenPage = Set<String>()
 
@@ -65,6 +70,8 @@ final class DarkStore: ObservableObject {
                 group.addTask { ("sukebei", await self.nyaaRSS("https://sukebei.nyaa.si", enc, "sukebei")) }
                 group.addTask { ("nyaa", await self.nyaaRSS("https://nyaa.si", enc, "nyaa")) }
                 group.addTask { ("bing", await self.bingWeb(enc)) }
+                group.addTask { ("ahmia", await self.ahmia(enc)) }
+                group.addTask { ("onionse", await self.onionSE(enc)) }
                 if ascii {
                     group.addTask {
                         let url = "https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit=20&tags=\(tag)"
@@ -85,6 +92,8 @@ final class DarkStore: ObservableObject {
                             if seenPage.insert(h.page).inserted { onions.append(h); added += 1 }
                         } else if !h.thumb.isEmpty || !h.full.isEmpty {
                             if seenPage.insert(h.page).inserted { images.append(h); added += 1 }
+                        } else if !h.page.isEmpty {
+                            if seenPage.insert(h.page).inserted { webs.append(h); added += 1 }
                         }
                     }
                     log.append("\(q)·\(name): +\(added)")
@@ -105,9 +114,10 @@ final class DarkStore: ObservableObject {
 
     func runVideo() async {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty, !running else { return }
+        guard !running else { return }
+        guard !q.isEmpty else { log = ["先输入关键词（视频站吃中文：人妻 / 素人 / 中文字幕）"]; return }
         running = true
-        videos = []; log = []
+        resetBuckets()
         let enc = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
 
         for host in videoHosts {
@@ -144,9 +154,10 @@ final class DarkStore: ObservableObject {
 
     func run() async {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty, !running else { return }
+        guard !running else { return }
+        guard !q.isEmpty else { log = ["先输入关键词"] ; return }
         running = true
-        torrents = []; images = []; onions = []; webs = []; log = []
+        resetBuckets()
         let enc = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
         let tag = q.replacingOccurrences(of: " ", with: "_")
             .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
@@ -315,13 +326,26 @@ final class DarkStore: ObservableObject {
     private func bilibiliVideo(_ q: String) async -> [DarkHit] {
         guard let html = await fetch("https://search.bilibili.com/all?keyword=\(q)") else { return [] }
         var out: [DarkHit] = []
-        for card in matches(html, "<div class=\"bili-video-card[\"]?[\\s\\S]*?</div>\\s*</div>\\s*</div>") {
-            let href = first(card, "href=\"(//www\\.bilibili\\.com/video/[^\"]+)\"")
-            guard !href.isEmpty else { continue }
-            let thumb = first(card, "srcset=\"(//i[0-9]\\.hdslb\\.com/[^ \"]+)")
+        var seen = Set<String>()
+        // 视频卡片：href="//www.bilibili.com/video/BVxxxx"
+        let links = matches(html, "href=\"(//www\\.bilibili\\.com/video/BV[0-9A-Za-z]+[^\"]*)\"")
+        for l in links {
+            let href = first(l, "(//www\\.bilibili\\.com/video/BV[^\"]+)")
+            guard !href.isEmpty, seen.insert(href).inserted else { continue }
             let page = href.hasPrefix("//") ? "https:" + href : href
-            out.append(DarkHit(source: "bili", title: "B站视频", page: page,
-                               thumb: thumb.hasPrefix("//") ? "https:" + thumb : thumb))
+            // 卡片附近的 img alt 就是标题
+            if let r = html.range(of: l) {
+                let start = html.index(r.lowerBound, offsetBy: 0)
+                let end = html.index(start, offsetBy: min(1200, html.distance(from: start, to: html.endIndex)))
+                let window = String(html[start..<end])
+                var title = clean(first(window, "alt=\"([^\"]{4,120})\""))
+                if title.isEmpty { title = clean(first(window, "<h3[^>]*>([\\s\\S]*?)</h3>")) }
+                let thumb = first(window, "(?:data-src|srcset)=\"(//i[0-9]\\.hdslb\\.com/[^ \"]+)")
+                out.append(DarkHit(source: "bili",
+                                   title: title.isEmpty ? "B站视频" : title,
+                                   page: page,
+                                   thumb: thumb.hasPrefix("//") ? "https:" + thumb : thumb))
+            }
             if out.count >= 12 { break }
         }
         return out

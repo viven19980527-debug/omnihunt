@@ -230,7 +230,7 @@ struct VideoList: View {
             .padding(10)
         }
         .sheet(item: $playing) { t in
-            InAppBrowser(url: t.url)
+            StreamSnifferView(url: t.url)   // 视频走嗅探 + 原生播放，不再开普通浏览器
         }
     }
 }

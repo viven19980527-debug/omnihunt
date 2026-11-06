@@ -258,14 +258,19 @@ class SearchEngine:
     # --------------------------------------------------------------- internal
     def _run_one(self, adapter, query: str, per_engine: int, cache_on: bool):
         n = max(1, min(per_engine, 50))
-        key = Cache.key("v1", query.lower(), adapter.name, n)
+        net = self.client.http_proxy or self.client.tor_proxy or "direct"
+        key = Cache.key("v3", query.lower(), adapter.name, n, net)
         if cache_on:
             cached = self.cache.get(key)
             if cached is not None:
                 return [Result(**row) for row in cached], 0, True
 
         t0 = time.perf_counter()
-        items = adapter.search(query, n) or []
+        try:
+            items = adapter.search(query, n) or []
+        except Exception:
+            # 失败不写缓存，下次还能重试（以前会把失败当空结果缓存 30 分钟）
+            raise
         for pos, item in enumerate(items):
             item.position = pos
             if not item.weight:

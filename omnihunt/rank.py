@@ -11,8 +11,8 @@ from typing import Dict, Iterable, List, Optional, Sequence
 
 from .models import Result, canonical_url
 
-KIND_PRIORITY = {"onion": 0, "web": 1, "adult": 2, "torrent": 3, "pattern": 4}
-KIND_BONUS = {"onion": 0.18, "torrent": 0.12, "adult": 0.08, "web": 0.0, "pattern": -0.05}
+KIND_PRIORITY = {"onion": 0, "image": 1, "video": 2, "web": 3, "adult": 4, "torrent": 5, "pattern": 6}
+KIND_BONUS = {"onion": 0.18, "image": 0.10, "video": 0.10, "torrent": 0.12, "adult": 0.08, "web": 0.0, "pattern": -0.05}
 
 _CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]")
 _WORD = re.compile(r"[a-z0-9_]+")

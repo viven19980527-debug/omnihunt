@@ -9,7 +9,7 @@ struct StreamSnifferView: View {
     let url: URL
     @Environment(\.dismiss) private var dismiss
     @State private var stream: URL?
-    @State private var playing = false
+    @State private var playURL: URL?
     @State private var hint = "正在加载页面…"
 
     var body: some View {
@@ -23,7 +23,7 @@ struct StreamSnifferView: View {
                 VStack(spacing: 8) {
                     Text(hint).font(.system(size: 11)).foregroundStyle(.white.opacity(0.8))
                     Button {
-                        playing = true
+                        playURL = stream
                     } label: {
                         Label(stream == nil ? "正在嗅探播放地址…" : "▶ 立即播放",
                               systemImage: "play.fill")
@@ -46,9 +46,7 @@ struct StreamSnifferView: View {
                     Button("刷新") { stream = nil; hint = "重新嗅探…" }
                 }
             }
-            .fullScreenCover(isPresented: $playing) {
-                if let s = stream { VideoPlayerView(url: s) }
-            }
+            .fullScreenCover(item: $playURL) { u in VideoPlayerView(url: u) }
         }
     }
 }
@@ -57,6 +55,7 @@ struct VideoPlayerView: View {
     let url: URL
     @Environment(\.dismiss) private var dismiss
     @State private var player: AVPlayer?
+    @State private var failed = false
 
     var body: some View {
         ZStack {
@@ -84,11 +83,31 @@ struct VideoPlayerView: View {
                     .padding(14)
                 }
                 Spacer()
+                if failed {
+                    VStack(spacing: 8) {
+                        Text("这个地址播不了（可能需要 Referer 或已过期）")
+                            .font(.system(size: 12)).foregroundStyle(.white)
+                        Button("复制地址，用其他播放器") {
+                            UIPasteboard.general.string = url.absoluteString
+                        }
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(.white.opacity(0.2))
+                        .foregroundStyle(.white)
+                        .clipShape(Capsule())
+                    }
+                    .padding(.bottom, 40)
+                }
             }
         }
         .onAppear {
-            let item = AVPlayerItem(url: url)
+            let asset = AVURLAsset(url: url)
+            let item = AVPlayerItem(asset: asset)
             player = AVPlayer(playerItem: item)
+            NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemFailedToPlayToEndTime, object: item, queue: .main) { _ in
+                failed = true
+            }
         }
         .onDisappear { player?.pause() }
     }
@@ -179,4 +198,9 @@ private struct SnifferWeb: UIViewRepresentable {
             return nil
         }
     }
+}
+
+
+extension URL: Identifiable {
+    public var id: String { absoluteString }
 }
