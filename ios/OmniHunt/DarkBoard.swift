@@ -600,7 +600,7 @@ struct DarkBoardView: View {
     private var videoSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle("视频 \(store.videos.count) · 点开直接播")
-            ForEach(store.videos) { h in
+            ForEach(store.videos, id: \.id) { h in
                 Button {
                     if let u = URL(string: h.page) { sniff = BrowserTarget(url: u) }
                 } label: {
@@ -636,7 +636,7 @@ struct DarkBoardView: View {
     private var webSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle("网页 \(store.webs.count)")
-            ForEach(store.webs) { h in
+            ForEach(store.webs, id: \.id) { h in
                 Button {
                     if let u = URL(string: h.page) { browser = BrowserTarget(url: u) }
                 } label: {
@@ -663,7 +663,7 @@ struct DarkBoardView: View {
     private var torrentSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle("磁力 \(store.torrents.count)")
-            ForEach(store.torrents) { h in
+            ForEach(store.torrents, id: \.id) { h in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(h.title).font(.system(size: 12.5, weight: .semibold))
                         .foregroundStyle(Theme.ink).lineLimit(3)
@@ -678,9 +678,9 @@ struct DarkBoardView: View {
                         }
                     }
                     HStack(spacing: 8) {
-                        Button(copied == h.id.uuidString ? "已复制" : "复制磁力") {
+                        Button(copied == h.id ? "已复制" : "复制磁力") {
                             UIPasteboard.general.string = h.magnet
-                            copied = h.id.uuidString
+                            copied = h.id
                         }
                         .font(.system(size: 11))
                         Button("打开页面") {
@@ -701,7 +701,7 @@ struct DarkBoardView: View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle("图片 \(store.images.count)")
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 6)], spacing: 6) {
-                ForEach(store.images) { h in
+                ForEach(store.images, id: \.id) { h in
                     AsyncImage(url: URL(string: h.thumb.isEmpty ? h.full : h.thumb)) { phase in
                         if case .success(let img) = phase {
                             img.resizable().aspectRatio(contentMode: .fill)
@@ -724,14 +724,14 @@ struct DarkBoardView: View {
     private var onionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle(".onion \(store.onions.count)")
-            ForEach(store.onions) { h in
+            ForEach(store.onions, id: \.id) { h in
                 VStack(alignment: .leading, spacing: 3) {
                     Text(h.title).font(.system(size: 12.5)).foregroundStyle(Theme.ink).lineLimit(2)
                     Text(h.page).font(.system(size: 9.5, design: .monospaced))
                         .foregroundStyle(Theme.dim).lineLimit(1)
                     Button("复制地址") {
                         UIPasteboard.general.string = h.page
-                        copied = h.id.uuidString
+                        copied = h.id
                     }
                     .font(.system(size: 11))
                 }
