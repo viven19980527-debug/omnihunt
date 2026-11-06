@@ -130,10 +130,13 @@ private struct SnifferWeb: UIViewRepresentable {
         let cfg = WKWebViewConfiguration()
         cfg.allowsInlineMediaPlayback = true
         cfg.mediaTypesRequiringUserActionForPlayback = .all
-        cfg.defaultWebpagePreferences.preferredContentMode = .desktop
+        cfg.defaultWebpagePreferences.preferredContentMode = .mobile
         let wv = WKWebView(frame: .zero, configuration: cfg)
+        wv.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
         wv.navigationDelegate = context.coordinator
         wv.uiDelegate = context.coordinator
+        wv.scrollView.minimumZoomScale = 0.5
+        wv.scrollView.maximumZoomScale = 4.0
         AdBlocker.install { list in
             if let list = list { wv.configuration.userContentController.add(list) }
             wv.load(URLRequest(url: url))

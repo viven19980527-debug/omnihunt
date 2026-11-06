@@ -41,7 +41,7 @@ struct ContentView: View {
             }
             .scrollDismissesKeyboard(.interactively)
         }
-        .sheet(isPresented: $showDark) { DarkBoardView() }
+        .fullScreenCover(isPresented: $showDark) { DarkBoardView() }
         .sheet(isPresented: $showSettings, onDismiss: applyDefaults) {
             SettingsView().environmentObject(settings)
         }

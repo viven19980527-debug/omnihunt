@@ -69,12 +69,14 @@ final class WebRef: ObservableObject {
 struct SafeBrowser: UIViewRepresentable {
     let url: URL
     var ref: WebRef? = nil
+    /// 手机版排版更适合窄屏；登录页仍用桌面版
+    var desktop: Bool = false
 
     func makeCoordinator() -> Coord { Coord() }
 
     func makeUIView(context: Context) -> WKWebView {
         let cfg = WKWebViewConfiguration()
-        cfg.defaultWebpagePreferences.preferredContentMode = .desktop
+        cfg.defaultWebpagePreferences.preferredContentMode = desktop ? .desktop : .mobile
         cfg.defaultWebpagePreferences.allowsContentJavaScript = true
         cfg.mediaTypesRequiringUserActionForPlayback = .all
         cfg.allowsInlineMediaPlayback = true
@@ -85,6 +87,9 @@ struct SafeBrowser: UIViewRepresentable {
         wv.navigationDelegate = context.coordinator
         wv.allowsBackForwardNavigationGestures = true
         wv.allowsLinkPreview = true
+        wv.scrollView.minimumZoomScale = 0.5
+        wv.scrollView.maximumZoomScale = 4.0
+        wv.scrollView.bouncesZoom = true
         ref?.view = wv
         AdBlocker.install { list in
             if let list = list {
@@ -277,8 +282,8 @@ struct VideoList: View {
             }
             .padding(10)
         }
-        .sheet(item: $playing) { t in
-            StreamSnifferView(url: t.url)   // 视频走嗅探 + 原生播放，不再开普通浏览器
+        .fullScreenCover(item: $playing) { t in
+            StreamSnifferView(url: t.url)   // 视频走嗅探 + 原生播放
         }
     }
 }

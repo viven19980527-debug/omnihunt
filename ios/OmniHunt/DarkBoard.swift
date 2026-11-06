@@ -513,8 +513,8 @@ struct DarkBoardView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) { Button("完成") { dismiss() } }
             }
-            .sheet(item: $browser) { t in InAppBrowser(url: t.url) }
-            .sheet(item: $sniff) { t in StreamSnifferView(url: t.url) }
+            .fullScreenCover(item: $browser) { t in InAppBrowser(url: t.url) }
+            .fullScreenCover(item: $sniff) { t in StreamSnifferView(url: t.url) }
         }
     }
 
